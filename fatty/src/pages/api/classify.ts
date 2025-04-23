@@ -11,27 +11,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { base64Image } = req.body as { base64Image: string };
-    // write temp file
     const buffer = Buffer.from(base64Image, 'base64');
     const tmpPath = path.join(process.cwd(), `temp_${Date.now()}.jpg`);
     await fs.promises.writeFile(tmpPath, buffer);
 
-    // spawn YOLO classifier
-    const py = spawn('python', ['src/scripts/run_yolo.py', tmpPath]);
-    let output = '';
-    py.stdout.on('data', data => { output += data.toString(); });
-    py.stderr.on('data', data => console.error(data.toString()));
+    // Wrap spawn in a Promise so Next.js waits for it
+    await new Promise<void>((resolve, reject) => {
+      const py = spawn('python', ['src/scripts/run_yolo.py', tmpPath]);
+      let output = '';
 
-    py.on('close', code => {
-      // cleanup
-      fs.unlink(tmpPath, () => {});
-      if (code !== 0) {
-        return res.status(500).json({ error: 'Python script error' });
-      }
-      res.status(200).json({ classification: output.trim() });
+      py.stdout.on('data', data => {
+        output += data.toString();
+      });
+
+      py.stderr.on('data', data => {
+        console.error(data.toString());
+      });
+
+      py.on('error', err => {
+        // script failed to start
+        fs.unlink(tmpPath, () => {});
+        res.status(500).json({ error: 'Failed to start Python script' });
+        reject(err);
+      });
+
+      py.on('close', code => {
+        fs.unlink(tmpPath, () => {});
+        if (code !== 0) {
+          res.status(500).json({ error: 'Python script error' });
+          return reject(new Error('Non-zero exit code'));
+        }
+        res.status(200).json({ classification: output.trim() });
+        resolve();
+      });
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    // Only send one response!
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 }
