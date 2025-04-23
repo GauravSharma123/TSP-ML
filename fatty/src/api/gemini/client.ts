@@ -9,7 +9,7 @@ const config = {
   responseMimeType: 'text/plain',
 };
 
-export async function analyzeImage(base64Image: string): Promise<string> {
+export async function analyzeImage(classificationResult: string, base64Image: string): Promise<string> {
   const contents = [
     {
       role: 'user',
@@ -67,7 +67,7 @@ Once the image is provided, I will:
       role: 'user',
       parts: [
         {
-          text: `Here is the image I would like you to analyze:`,
+          text: `Here is the image I would like you to analyze: it is a ${classificationResult} object.`,
           image: {
             base64: base64Image,
           },
