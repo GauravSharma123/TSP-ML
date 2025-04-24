@@ -1,10 +1,10 @@
-1. make .env.local in fatty folder 
+1. make .env.local in MLmodel folder 
 2. copy paste the secret from messenger
 3. install dependencies
 ```
 npm install
 ```
-4. create venv in fatty folder
+4. create venv in MLmodel folder
 ```
 cd fatty
 python3 -m venv venv
